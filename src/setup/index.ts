@@ -7,5 +7,4 @@ export { runSetupWizard, validateEnvironment } from "./wizard.js";
 export type {
   ValidationResult,
   GeminiInstallCheck,
-  AuthCheck,
 } from "./wizard.js";

@@ -198,6 +198,11 @@ export const DEFAULT_IGNORE_PATTERNS = [
 export const SYSTEM_PROMPT = `
 You are analyzing a codebase on behalf of an AI coding agent.
 
+WHEN TO USE THIS TOOL:
+- The calling agent should use MCP tools (quick_query, deep_research, analyze_directory) FIRST when questions involve repository files or code analysis
+- This reduces the calling agent's context and model usage by offloading heavy reading/analysis to Gemini CLI's large context window
+- Prefer using tools over asking the agent to read files directly
+
 CRITICAL CONSTRAINTS:
 - Read-only analysis ONLY (no write/edit tools available without --yolo flag)
 - Do NOT suggest code changes, patches, or file modifications
@@ -239,9 +244,9 @@ Better Gemini MCP — Setup Wizard
 Setup Complete! 🎉
 ==================
 `,
-  STEP_GEMINI_INSTALL: "[1/3] Checking Gemini CLI installation...",
-  STEP_AUTH: "[2/3] Checking authentication...",
-  STEP_TEST: "[3/3] Testing Gemini CLI...",
+  STEP_GEMINI_INSTALL: "[1/2] Checking Gemini CLI installation...",
+  STEP_AUTH: "[2/3] Checking authentication...", // Deprecated - no longer used
+  STEP_TEST: "[2/2] Testing Gemini CLI...",
   
   GEMINI_FOUND: (path: string, version: string) => `  ✓ Gemini CLI found at ${path} (version ${version})`,
   GEMINI_NOT_FOUND: `  ✗ Gemini CLI not found

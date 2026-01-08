@@ -35,7 +35,7 @@ const healthCheckSchema = z.object({
 export const healthCheckTool: UnifiedTool = {
   name: "health_check",
   description:
-    "Confirm the MCP server is running and able to service requests. Optionally include detailed diagnostics about Gemini CLI setup.",
+    "Verify server status and Gemini CLI configuration. Use for troubleshooting connection issues or confirming setup. Example: {includeDiagnostics: true}",
   zodSchema: healthCheckSchema,
   category: "utility",
 

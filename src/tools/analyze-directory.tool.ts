@@ -106,7 +106,7 @@ function parseFileSummaries(
 export const analyzeDirectoryTool: UnifiedTool = {
   name: "analyze_directory",
   description:
-    "Provide a high-level map of a directory while respecting ignore rules and project-root restrictions.",
+    "Map repository structure and understand what each file/module does. Preferred when questions ask about project organization or 'what's in this directory'. Example: {path: './src', depth: 3, maxFiles: 100}",
   zodSchema: analyzeDirectorySchema,
   category: "utility",
 
@@ -135,6 +135,7 @@ export const analyzeDirectoryTool: UnifiedTool = {
             details: {
               resolved: resolvedPath,
               projectRoot,
+              nextStep: "Use validate_paths tool to check which paths are accessible, or adjust path to be within project root",
             },
           },
         },
@@ -221,14 +222,19 @@ For each file, output:
       const errorMessage = error instanceof Error ? error.message : String(error);
       Logger.error(`analyze_directory: Failed - ${errorMessage}`);
 
-      // Determine error code
+      // Determine error code and provide recovery hints
       let code: ErrorCode = ERROR_CODES.GEMINI_CLI_ERROR;
+      let nextStep = "Check server logs for details";
+      
       if (errorMessage.includes("not found") || errorMessage.includes("ENOENT")) {
         code = ERROR_CODES.GEMINI_CLI_NOT_FOUND;
+        nextStep = "Install Gemini CLI: npm install -g @google/gemini-cli, or run setup wizard: npx better-gemini-mcp init";
       } else if (errorMessage.includes("auth") || errorMessage.includes("login")) {
         code = ERROR_CODES.AUTH_MISSING;
+        nextStep = "Authenticate Gemini CLI: run 'gemini' and select 'Login with Google', or set GEMINI_API_KEY environment variable";
       } else if (errorMessage.includes("quota")) {
         code = ERROR_CODES.QUOTA_EXCEEDED;
+        nextStep = "Quota exhausted after fallback. Wait for quota reset or upgrade plan.";
       }
 
       return JSON.stringify(
@@ -236,7 +242,10 @@ For each file, output:
           error: {
             code,
             message: errorMessage,
-            details: { tool: "analyze_directory" },
+            details: { 
+              tool: "analyze_directory",
+              nextStep,
+            },
           },
         },
         null,

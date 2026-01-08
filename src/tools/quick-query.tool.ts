@@ -64,7 +64,7 @@ const STYLE_INSTRUCTIONS: Record<string, string> = {
 export const quickQueryTool: UnifiedTool = {
   name: "quick_query",
   description:
-    "Send a lightweight research prompt to Gemini CLI for fast analysis. Optimized for faster turnaround using flash models.",
+    "Analyze code/files quickly using Gemini's large context window. Preferred when questions mention specific files or require reading repository code. Example: {prompt: 'Explain @src/auth.ts security approach', focus: 'security', responseStyle: 'concise'}",
   zodSchema: quickQuerySchema,
   category: "query",
 
@@ -100,6 +100,7 @@ export const quickQueryTool: UnifiedTool = {
             message: "Invalid @path references in prompt",
             details: {
               invalidPaths: pathValidation.invalidPaths,
+              nextStep: "Use validate_paths tool to check which paths are accessible, or adjust paths to be within project root",
             },
           },
         },
@@ -154,7 +155,7 @@ export const quickQueryTool: UnifiedTool = {
         meta: {
           projectRoot,
           truncated: false,
-          warnings: [],
+          warnings: chunks ? ["Response chunked due to size. Use fetch_chunk tool to retrieve remaining content."] : [],
         },
       };
 
@@ -164,14 +165,19 @@ export const quickQueryTool: UnifiedTool = {
       const errorMessage = error instanceof Error ? error.message : String(error);
       Logger.error(`quick_query: Failed - ${errorMessage}`);
 
-      // Determine error code
+      // Determine error code and provide recovery hints
       let code: ErrorCode = ERROR_CODES.GEMINI_CLI_ERROR;
+      let nextStep = "Check server logs for details";
+      
       if (errorMessage.includes("not found") || errorMessage.includes("ENOENT")) {
         code = ERROR_CODES.GEMINI_CLI_NOT_FOUND;
+        nextStep = "Install Gemini CLI: npm install -g @google/gemini-cli, or run setup wizard: npx better-gemini-mcp init";
       } else if (errorMessage.includes("auth") || errorMessage.includes("login")) {
         code = ERROR_CODES.AUTH_MISSING;
+        nextStep = "Authenticate Gemini CLI: run 'gemini' and select 'Login with Google', or set GEMINI_API_KEY environment variable";
       } else if (errorMessage.includes("quota")) {
         code = ERROR_CODES.QUOTA_EXCEEDED;
+        nextStep = "Quota exhausted after fallback. Wait for quota reset or upgrade plan. Consider using quick_query for lighter tasks.";
       }
 
       return JSON.stringify(
@@ -179,7 +185,10 @@ export const quickQueryTool: UnifiedTool = {
           error: {
             code,
             message: errorMessage,
-            details: { tool: "quick_query" },
+            details: { 
+              tool: "quick_query",
+              nextStep,
+            },
           },
         },
         null,

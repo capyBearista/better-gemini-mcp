@@ -18,6 +18,7 @@ export interface ValidationResult {
   success: boolean;
   message?: string;
   details?: Record<string, unknown>;
+  isAuthError?: boolean;
 }
 
 export interface GeminiInstallCheck {
@@ -26,19 +27,14 @@ export interface GeminiInstallCheck {
   version: string | null;
 }
 
-export interface AuthCheck {
-  authenticated: boolean;
-  method: "google" | "api_key" | "vertex" | null;
-}
-
 // ============================================================================
 // Helper Functions
 // ============================================================================
 
 /**
- * Execute a command and return stdout
+ * Execute a command and return stdout with timeout support
  */
-async function runCommand(command: string, args: string[]): Promise<string> {
+async function runCommand(command: string, args: string[], timeoutMs: number = 60000): Promise<string> {
   return new Promise((resolve, reject) => {
     const childProcess = spawn(command, args, {
       env: process.env,
@@ -48,6 +44,14 @@ async function runCommand(command: string, args: string[]): Promise<string> {
 
     let stdout = "";
     let stderr = "";
+    let timedOut = false;
+
+    // Set up timeout to kill process if it hangs
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      childProcess.kill();
+      reject(new Error(`Command timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
 
     childProcess.stdout.on("data", (data: Buffer) => {
       stdout += data.toString();
@@ -58,10 +62,15 @@ async function runCommand(command: string, args: string[]): Promise<string> {
     });
 
     childProcess.on("error", (error: Error) => {
+      clearTimeout(timeout);
       reject(new Error(`Failed to spawn '${command}': ${error.message}`));
     });
 
     childProcess.on("close", (code: number | null) => {
+      clearTimeout(timeout);
+      if (timedOut) {
+        return; // Already rejected by timeout
+      }
       if (code === 0) {
         resolve(stdout.trim());
       } else {
@@ -126,98 +135,22 @@ export async function checkGeminiInstallation(): Promise<GeminiInstallCheck> {
   };
 }
 
-/**
- * Step 2: Check authentication status
- * Checks in order:
- *   1. Existing Gemini CLI authenticated session
- *   2. GEMINI_API_KEY environment variable
- *   3. Vertex AI credentials
- */
-export async function checkAuthentication(): Promise<AuthCheck> {
-  // Check for GEMINI_API_KEY environment variable first (easiest to detect)
-  if (process.env.GEMINI_API_KEY) {
-    return {
-      authenticated: true,
-      method: "api_key",
-    };
-  }
 
-  // Check for Vertex AI credentials
-  if (
-    process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-    process.env.GOOGLE_CLOUD_PROJECT ||
-    process.env.CLOUDSDK_CORE_PROJECT
-  ) {
-    return {
-      authenticated: true,
-      method: "vertex",
-    };
-  }
-
-  // Check for Gemini CLI session (stored in ~/.gemini/settings.json or similar)
-  const geminiConfigDir = path.join(os.homedir(), ".gemini");
-  const sessionFiles = ["session.json", "credentials.json", "settings.json"];
-  
-  for (const file of sessionFiles) {
-    const filePath = path.join(geminiConfigDir, file);
-    try {
-      if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, "utf-8");
-        const parsed = JSON.parse(content);
-        // Check for any auth-related fields
-        if (
-          parsed.accessToken ||
-          parsed.refreshToken ||
-          parsed.auth ||
-          parsed.session ||
-          parsed.authenticated
-        ) {
-          return {
-            authenticated: true,
-            method: "google",
-          };
-        }
-      }
-    } catch {
-      // File doesn't exist or invalid JSON, continue checking
-    }
-  }
-
-  // Also try running a minimal Gemini command to check auth
-  // This is the most reliable way but slower
-  try {
-    await runCommand(CLI.COMMANDS.GEMINI, [
-      CLI.FLAGS.PROMPT,
-      "echo test",
-      CLI.FLAGS.OUTPUT_FORMAT,
-      CLI.OUTPUT_FORMATS.JSON,
-    ]);
-    // If we get here without error, auth is configured
-    return {
-      authenticated: true,
-      method: "google",
-    };
-  } catch {
-    // Auth check failed, continue to return not authenticated
-  }
-
-  return {
-    authenticated: false,
-    method: null,
-  };
-}
 
 /**
- * Step 3: Test Gemini CLI invocation
+ * Step 2: Test Gemini CLI invocation
+ * This also validates authentication - if auth is missing, command will fail
  */
 export async function testGeminiInvocation(): Promise<ValidationResult> {
   try {
+    // Use longer timeout for Gemini CLI (takes time to boot and process)
+    // Use an unambiguous prompt that won't trigger tool search or file analysis
     const output = await runCommand(CLI.COMMANDS.GEMINI, [
       CLI.FLAGS.PROMPT,
-      "test",
+      "What is 2+2? Answer with just the number.",
       CLI.FLAGS.OUTPUT_FORMAT,
       CLI.OUTPUT_FORMATS.JSON,
-    ]);
+    ], 120000); // 2 minutes timeout
     
     // Try to parse JSON output to verify it's working correctly
     try {
@@ -232,9 +165,19 @@ export async function testGeminiInvocation(): Promise<ValidationResult> {
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    // Check if error is likely auth-related
+    const isAuthError = 
+      errorMessage.includes('auth') ||
+      errorMessage.includes('login') ||
+      errorMessage.includes('credential') ||
+      errorMessage.includes('unauthenticated') ||
+      errorMessage.includes('timed out'); // Timeout often means waiting for auth prompt
+    
     return {
       success: false,
       message: errorMessage,
+      isAuthError,
     };
   }
 }
@@ -268,36 +211,7 @@ export async function runSetupWizard(): Promise<boolean> {
   
   console.log(); // Empty line for spacing
   
-  // Step 2: Check authentication (only if Gemini is installed)
-  console.log(WIZARD_MESSAGES.STEP_AUTH);
-  
-  if (!installCheck.installed) {
-    console.log("  ⚠ Skipped (Gemini CLI not installed)");
-    hasErrors = true;
-  } else {
-    const authCheck = await checkAuthentication();
-    
-    if (authCheck.authenticated) {
-      switch (authCheck.method) {
-        case "google":
-          console.log(WIZARD_MESSAGES.AUTH_GOOGLE);
-          break;
-        case "api_key":
-          console.log(WIZARD_MESSAGES.AUTH_API_KEY);
-          break;
-        case "vertex":
-          console.log(WIZARD_MESSAGES.AUTH_VERTEX);
-          break;
-      }
-    } else {
-      console.log(WIZARD_MESSAGES.AUTH_NOT_FOUND);
-      hasErrors = true;
-    }
-  }
-  
-  console.log(); // Empty line for spacing
-  
-  // Step 3: Test invocation (only if Gemini is installed and authenticated)
+  // Step 2: Test invocation (only if Gemini is installed)
   console.log(WIZARD_MESSAGES.STEP_TEST);
   
   if (!installCheck.installed) {
@@ -309,8 +223,13 @@ export async function runSetupWizard(): Promise<boolean> {
       console.log(WIZARD_MESSAGES.TEST_SUCCESS);
     } else {
       console.log(WIZARD_MESSAGES.TEST_FAILED(testResult.message || "Unknown error"));
-      // Don't set hasErrors for test failures if auth is configured
-      // The test might fail due to quota issues etc.
+      hasErrors = true;
+      
+      // If error is likely auth-related, show auth instructions
+      if (testResult.isAuthError) {
+        console.log("");
+        console.log(WIZARD_MESSAGES.AUTH_NOT_FOUND);
+      }
     }
   }
   
@@ -346,15 +265,8 @@ export async function validateEnvironment(): Promise<{ valid: boolean; error?: s
     };
   }
   
-  // Check authentication
-  const authCheck = await checkAuthentication();
-  
-  if (!authCheck.authenticated) {
-    return {
-      valid: false,
-      error: WIZARD_MESSAGES.STARTUP_AUTH_MISSING,
-    };
-  }
+  // Note: We don't check auth here - let tools fail with clear errors
+  // This allows the server to start even if Gemini CLI needs auth
   
   return { valid: true };
 }

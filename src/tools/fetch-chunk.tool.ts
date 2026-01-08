@@ -30,7 +30,7 @@ const fetchChunkSchema = z.object({
 export const fetchChunkTool: UnifiedTool = {
   name: "fetch_chunk",
   description:
-    "Retrieve a specific chunk of a large response that was previously split due to size constraints.",
+    "Retrieve continuation of a large response. Use when a previous tool response included 'chunks' metadata indicating more content available. Example: {cacheKey: 'cache_abc123', chunkIndex: 2}",
   zodSchema: fetchChunkSchema,
   category: "utility",
 
@@ -78,7 +78,10 @@ export const fetchChunkTool: UnifiedTool = {
           error: {
             code: ERROR_CODES.CACHE_EXPIRED,
             message: ERROR_MESSAGES.CACHE_EXPIRED,
-            details: { cacheKey },
+            details: { 
+              cacheKey,
+              nextStep: "Cache expired (1-hour TTL). Re-run the original query to regenerate the response.",
+            },
           },
         },
         null,
@@ -94,7 +97,10 @@ export const fetchChunkTool: UnifiedTool = {
           error: {
             code: ERROR_CODES.CACHE_EXPIRED,
             message: ERROR_MESSAGES.CACHE_EXPIRED,
-            details: { cacheKey },
+            details: { 
+              cacheKey,
+              nextStep: "Cache expired (1-hour TTL). Re-run the original query to regenerate the response.",
+            },
           },
         },
         null,
@@ -113,6 +119,7 @@ export const fetchChunkTool: UnifiedTool = {
             details: {
               requestedIndex: chunkIndex,
               totalChunks: metadata.totalChunks,
+              nextStep: `Request a chunk index between 1 and ${metadata.totalChunks}`,
             },
           },
         },

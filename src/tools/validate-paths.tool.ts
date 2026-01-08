@@ -25,7 +25,7 @@ const validatePathsSchema = z.object({
 export const validatePathsTool: UnifiedTool = {
   name: "validate_paths",
   description:
-    "Preflight check for @path references. Validates existence and project root restriction so agents can correct paths quickly before invoking research tools.",
+    "Verify file paths exist and are accessible before analysis. Use when uncertain about path correctness or troubleshooting 'PATH_NOT_ALLOWED' errors. Example: {paths: ['src/auth.ts', 'config/database.js', '../README.md']}",
   zodSchema: validatePathsSchema,
   category: "utility",
 
