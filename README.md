@@ -8,7 +8,7 @@ A lightweight, stateless MCP (Model Context Protocol) server that lets developer
 
 **Status:** v1 complete. Core features are stable, but still early days. Feedback welcome!
 
-**⭐ Star this repo if it extended the lifespan of your usage window :)**
+**If this project extended the lifespan of your usage window,** ⭐ please consider giving it a star! :)
 
 **Primary goals:**
 - Reduce agent context usage by letting Gemini CLI read large codebases locally and do its own research
@@ -37,10 +37,7 @@ Instead of copying entire files into your agent's context (burning tokens and cl
   - [Tools](#tools)
     - [Example workflows](#example-workflows)
   - [Troubleshooting (common issues)](#troubleshooting-common-issues)
-  - [Developer notes](#developer-notes)
-    - [Running tests \& development](#running-tests--development)
   - [Contributing](#contributing)
-    - [Guidelines](#guidelines)
   - [License](#license)
 
 ## Overview
@@ -298,50 +295,15 @@ Agent: Use analyze_directory on src/ with depth 3 to understand the project stru
 - `PATH_NOT_ALLOWED`: All `@path` references must resolve inside the configured project root (`process.cwd()` by default). Use `validate_paths` to pre-check paths.
 - `QUOTA_EXCEEDED`: Server retries with fallback models; if all tiers are exhausted, reduce scope (use `quick_query`) or wait for quota reset.
 
-## Developer notes
-- The authoritative system prompt and constants live in `src/constants.ts`.
-- The Gemini CLI integration and model fallback logic live in `src/utils/geminiExecutor.ts`.
-- Tools are registered under `src/tools/*.tool.ts` and follow the UnifiedTool pattern in `src/tools/registry.ts`.
-- Key design rules: stateless operation, read-only enforcement, server-managed model tiers, project-root path restriction.
-
-### Running tests & development
-
-```bash
-npm run dev
-
-# Run tests
-npm test
-
-# Run unit tests only
-npm run test:unit
-
-# Run integration tests
-npm run test:integration
-
-# Lint
-npm run lint
-```
-
 ## Contributing
 
-Contributions are welcome! Please:
+We welcome contributions! Please read the [Contributing Guide](./CONTRIBUTING.md) to get started.
 
-1. Fork the repository
-2. Create a feature branch (`git switch -c feature/amazing-feature`)
-3. Make your changes
-4. Run tests (`npm test`)
-5. Commit (`git commit -m 'Add amazing feature'`)
-6. Push (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-### Guidelines
-
-- **TypeScript strict mode**: All code uses TypeScript with strict type checking
-- **ES Modules**: All imports must use `.js` extension (not `.ts`) for Node16 module resolution
-- **Code style**: Follow existing patterns in `src/tools/*.tool.ts` (use UnifiedTool pattern)
-- **Stateless design**: No session files, persistent storage, or server-managed state
-- **Read-only enforcement**: Never modify files; all Gemini CLI calls must be read-only
-- **Testing**: Add unit/integration tests in `tests/` directory
+Quick links:
+- [Development setup](./CONTRIBUTING.md#development-setup)
+- [Running tests](./CONTRIBUTING.md#running-tests)
+- [Code guidelines](./CONTRIBUTING.md#code-guidelines)
+- [Submitting changes](./CONTRIBUTING.md#submitting-changes)
 
 ## License
 
