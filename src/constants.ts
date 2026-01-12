@@ -227,7 +227,7 @@ OUTPUT FORMAT:
 
 export const SERVER_INFO = {
   NAME: "better-gemini-mcp",
-  VERSION: "1.0.0",
+  VERSION: "1.0.1",
   DESCRIPTION: "Stateless MCP server that proxies research queries to Gemini CLI",
 } as const;
 
@@ -245,7 +245,6 @@ Setup Complete! 🎉
 ==================
 `,
   STEP_GEMINI_INSTALL: "[1/2] Checking Gemini CLI installation...",
-  STEP_AUTH: "[2/3] Checking authentication...", // Deprecated - no longer used
   STEP_TEST: "[2/2] Testing Gemini CLI...",
   
   GEMINI_FOUND: (path: string, version: string) => `  ✓ Gemini CLI found at ${path} (version ${version})`,
@@ -257,9 +256,6 @@ Setup Complete! 🎉
   Documentation:
     https://github.com/google-gemini/gemini-cli`,
   
-  AUTH_GOOGLE: "  ✓ Authenticated session detected (Login with Google)",
-  AUTH_API_KEY: "  ✓ GEMINI_API_KEY environment variable set",
-  AUTH_VERTEX: "  ✓ Vertex AI credentials detected",
   AUTH_NOT_FOUND: `  ✗ No authentication configured
 
   Option 1: Login with Google (Recommended)
@@ -281,33 +277,12 @@ Setup Complete! 🎉
   
   NEXT_STEPS: `
 Next steps:
-1. Configure your MCP client (Claude Desktop, VS Code)
-2. Add this server to your MCP config:
-
-   For Claude Desktop (~/.config/Claude/claude_desktop_config.json):
-   {
-     "mcpServers": {
-       "better-gemini-mcp": {
-         "command": "npx",
-         "args": ["better-gemini-mcp"]
-       }
-     }
-   }
-
-   For VS Code (settings.json or mcp-settings.json):
-   {
-     "mcp.servers": {
-       "better-gemini-mcp": {
-         "command": "npx",
-         "args": ["better-gemini-mcp"]
-       }
-     }
-   }
-
+1. Configure your MCP client (Claude Desktop, VS Code, Cursor, etc.)
+2. See the README for detailed configuration instructions
 3. Restart your MCP client
 4. Test with: "Can you list your available tools?"
 
-Documentation: https://github.com/YOUR_ORG/better-gemini-mcp
+Documentation: https://github.com/capyBearista/better-gemini-mcp
 `,
   
   FIX_ISSUES: `

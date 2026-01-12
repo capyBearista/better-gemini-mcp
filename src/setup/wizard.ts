@@ -135,7 +135,26 @@ export async function checkGeminiInstallation(): Promise<GeminiInstallCheck> {
   };
 }
 
+/**
+ * Fast check if authentication is likely configured
+ */
+export function isAuthConfigured(): boolean {
+  // 1. Check environment variables (Gemini API Key or Vertex AI)
+  if (
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+    process.env.GOOGLE_CLOUD_PROJECT
+  ) {
+    return true;
+  }
 
+  // 2. Check for cached credentials in home directory
+  // Based on gemini CLI docs, it uses ~/.gemini/settings.json or credentials
+  const homeDir = os.homedir();
+  const geminiDir = path.join(homeDir, ".gemini");
+
+  return fs.existsSync(geminiDir);
+}
 
 /**
  * Step 2: Test Gemini CLI invocation
@@ -257,16 +276,21 @@ export async function runSetupWizard(): Promise<boolean> {
 export async function validateEnvironment(): Promise<{ valid: boolean; error?: string }> {
   // Check Gemini CLI installation
   const installCheck = await checkGeminiInstallation();
-  
+
   if (!installCheck.installed) {
     return {
       valid: false,
       error: WIZARD_MESSAGES.STARTUP_GEMINI_NOT_FOUND,
     };
   }
-  
-  // Note: We don't check auth here - let tools fail with clear errors
-  // This allows the server to start even if Gemini CLI needs auth
-  
+
+  // Check authentication (PRD §9.4)
+  if (!isAuthConfigured()) {
+    return {
+      valid: false,
+      error: WIZARD_MESSAGES.STARTUP_AUTH_MISSING,
+    };
+  }
+
   return { valid: true };
 }
