@@ -1,30 +1,41 @@
 # Better Gemini MCP
 
-[![npm version](https://badge.fury.io/js/better-gemini-mcp.svg)](https://www.npmjs.com/package/better-gemini-mcp)
-[![License: BSD-3](https://img.shields.io/badge/License-BSD%203--Clause-white.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![NPM Version](https://img.shields.io/npm/v/better-gemini-mcp?logo=npm)](https://www.npmjs.com/package/better-gemini-mcp)
+[![NPM Downloads](https://img.shields.io/npm/d18m/better-gemini-mcp?logo=npm)](https://www.npmjs.com/package/better-gemini-mcp)
+[![License: BSD-3 Claude](https://img.shields.io/badge/License-BSD%203--Clause-white.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-A lightweight, stateless MCP (Model Context Protocol) server that lets developer agents (Claude Code, GitHub Copilot) delegate deep repository analysis to the Gemini CLI. The server is read-only, returns structured JSON, and is optimized to reduce the calling agent's context and model usage.
+A lightweight, stateless MCP (Model Context Protocol) server that lets developer agents (Claude Code, GitHub Copilot) delegate deep repository analysis to the Gemini CLI. The server is read-only, returns structured JSON (as text content), and is optimized to reduce the calling agent's context and model usage.
 
 **Status:** v1 complete. Core features are stable, but still early days. Feedback welcome!
+
+**⭐ Star this repo if it extended the lifespan of your usage window :)**
 
 **Primary goals:**
 - Reduce agent context usage by letting Gemini CLI read large codebases locally and do its own research
 - Reduce calling-agent model usage by offloading heavy analysis to Gemini
 - Keep the server stateless and read-only for safety
 
-**Quick links:**
-- Product requirements doc: [docs/project-overview-PRD.md](docs/project-overview-PRD.md)
+**Why use this?**
 
-**Verified clients:** Claude Code, VS Code (GitHub Copilot), Cursor
+Instead of copying entire files into your agent's context (burning tokens and cluttering the conversation), this server lets Gemini CLI read files directly from your project. Your agent sends a research query, Gemini does the heavy lifting with its large context window, and returns structured results. You save tokens, your agent stays focused, and complex codebase analysis becomes practical.
 
-**Important constraints:** stateless, read-only (no code patches), server-owned model selection, project-root path restriction.
+**Verified clients:** Claude Code, Cursor, VS Code (GitHub Copilot)
+> [!NOTE] 
+> It definitely works with other clients, but I haven't personally tested them yet. Please open an issue if you try it elsewhere!
 
 **Table of contents**
+
 - [Better Gemini MCP](#better-gemini-mcp)
   - [Overview](#overview)
   - [Prerequisites](#prerequisites)
   - [Quickstart](#quickstart)
-  - [Tools (overview \& examples)](#tools-overview--examples)
+    - [Step 1: Validate environment](#step-1-validate-environment)
+    - [Step 2: Choose your installation method](#step-2-choose-your-installation-method)
+    - [Step 3: Configure your MCP client](#step-3-configure-your-mcp-client)
+    - [Step 4: Restart your MCP client](#step-4-restart-your-mcp-client)
+    - [Step 5: Test it](#step-5-test-it)
+  - [Tools](#tools)
+    - [Example workflows](#example-workflows)
   - [Troubleshooting (common issues)](#troubleshooting-common-issues)
   - [Developer notes](#developer-notes)
     - [Running tests \& development](#running-tests--development)
@@ -48,20 +59,28 @@ gemini --version
 ```
 
 ## Quickstart
-1. Validate environment (recommended):
+
+### Step 1: Validate environment
+Run the setup wizard to verify Gemini CLI is installed and authenticated:
 ```bash
 npx better-gemini-mcp init
 ```
-This runs the setup wizard to check `gemini` is available, authentication is configured, and that a minimal headless invocation succeeds.
 
-2. Start the MCP server (stdio transport):
-Or install globally:
+### Step 2: Choose your installation method
+
+**Option A: Try it without installing (npx)**
 ```bash
-npm install -g better-gemini-mcp
-better-gemini-mcp
+# Server starts automatically when your MCP client connects
+# Use this in your MCP client config (see Step 3)
 ```
 
-3. Configure your MCP client (VS Code, Claude Code, etc.)
+**Option B: Install globally**
+```bash
+npm install -g better-gemini-mcp
+better-gemini-mcp  # Run manually or via MCP client config
+```
+
+### Step 3: Configure your MCP client
 
 **Standard config** works in most of the tools:
 ```json
@@ -152,7 +171,7 @@ Go to `Cursor Settings` -> `Tools & MCP` -> `Add a Custom MCP Server`. Add the f
   "mcpServers": {
     "better-gemini-mcp": {
       "type": "stdio",
-      "command": "node",
+      "command": "npx",
       "args": [
         "better-gemini-mcp"
       ]
@@ -183,11 +202,45 @@ Example
 }
 ```
 
-4. Restart your MCP client
-5. Test with your agent: Try asking "Use better-gemini-mcp to analyze the project."
+### Step 4: Restart your MCP client
 
-## Tools (overview & examples)
-- **quick_query** — Fast, focused analysis (flash model). Example:
+### Step 5: Test it
+Ask your agent: "Use better-gemini-mcp to analyze the project."
+
+## Tools
+
+All tools return structured JSON (as MCP text content). Large responses are automatically chunked (~10KB per chunk) and cached for 1 hour.
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| **quick_query** | Fast analysis with flash model | Quick questions about specific files or small code sections |
+| **deep_research** | In-depth analysis with pro model | Complex multi-file analysis, architecture reviews, security audits |
+| **analyze_directory** | Map directory structure | Understanding unfamiliar codebases, generating project overviews |
+| **validate_paths** | Pre-check file paths | Verify files exist before running expensive queries |
+| **health_check** | Diagnostics | Troubleshooting server/Gemini CLI issues |
+| **fetch_chunk** | Get chunked responses | Retrieve remaining parts of large responses |
+
+### Example workflows
+
+**Understanding a security vulnerability:**
+```
+Agent: Use deep_research to analyze authentication flow across @src/auth and @src/middleware, focusing on security
+```
+
+**Quick code explanation:**
+```
+Agent: Use quick_query to explain the login flow in @src/auth.ts, be concise
+```
+
+**Mapping an unfamiliar codebase:**
+```
+Agent: Use analyze_directory on src/ with depth 3 to understand the project structure
+```
+
+<details>
+<summary>Full tool schemas (for reference)</summary>
+
+**quick_query**
 ```json
 {
   "prompt": "Explain @src/auth.ts login flow",
@@ -195,14 +248,17 @@ Example
   "responseStyle": "concise"
 }
 ```
-- **deep_research** — Heavy-duty analysis across many files (pro model). Example:
+
+**deep_research**
 ```json
 {
   "prompt": "Analyze authentication across @src/auth and @src/middleware",
   "focus": "architecture",
-  "citationMode": "paths_only" }
+  "citationMode": "paths_only"
+}
 ```
-- **analyze_directory** — Map a directory and summarize files. Example:
+
+**analyze_directory**
 ```json
 {
   "path": "src",
@@ -210,26 +266,30 @@ Example
   "maxFiles": 200
 }
 ```
-- **validate_paths** — Preflight `@path` checks. Example:
+
+**validate_paths**
 ```json
 {
   "paths": ["src/auth.ts", "README.md"]
 }
 ```
-- **health_check** — Server + Gemini diagnostics. Example:
+
+**health_check**
 ```json
 {
   "includeDiagnostics": true
 }
 ```
-- **fetch_chunk** — Retrieve chunked responses. Example:
+
+**fetch_chunk**
 ```json
 {
-  "cacheKey": "cache_abc123", "chunkIndex": 2
+  "cacheKey": "cache_abc123",
+  "chunkIndex": 2
 }
 ```
 
-Each tool returns a pretty-printed JSON string in the MCP `text` content. When large outputs are produced, responses are chunked (default ~10KB chunks), cached for 1 hour, and the initial response contains `chunks` metadata with a `cacheKey`.
+</details>
 
 ## Troubleshooting (common issues)
 - `GEMINI_CLI_NOT_FOUND`: Install Gemini CLI: `npm install -g @google/gemini-cli`
