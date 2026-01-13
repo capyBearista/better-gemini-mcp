@@ -354,6 +354,11 @@ Confirm the MCP server is running and able to service requests. Validate Gemini 
    - Check for `GEMINI_API_KEY` environment variable.
    - Optionally test a minimal Gemini CLI invocation to verify auth.
 
+#### Status Values
+- `"ok"` - Server and Gemini CLI are fully functional
+- `"degraded"` - Server running but Gemini CLI has issues (not installed, missing auth, etc.)
+- `"error"` - Health check encountered an error during diagnostics
+
 #### Output Contract (returned as JSON string)
 ```json
 {
@@ -368,6 +373,7 @@ Confirm the MCP server is running and able to service requests. Validate Gemini 
     "geminiOnPath": true,
     "geminiVersion": "2.1.0",
     "authConfigured": true,
+    "authMethod": "google_login",
     "readOnlyModeEnforced": true
   }
 }
