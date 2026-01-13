@@ -34,7 +34,7 @@
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
-    "url": "https://github.com/capyBearista/better-gemini-mcp.git"
+    "url": "git+https://github.com/capyBearista/better-gemini-mcp.git"
   },
   "bugs": {
     "url": "https://github.com/capyBearista/better-gemini-mcp/issues"
